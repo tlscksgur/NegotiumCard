@@ -1,0 +1,265 @@
+.app-shell {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.phone-frame {
+  width: min(420px, 100%);
+  min-height: 820px;
+  padding: 28px 20px 24px;
+  border-radius: 36px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 248, 255, 0.92)),
+    #ffffff;
+  box-shadow: 0 30px 100px rgba(23, 42, 79, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.phone-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: #4b6b8a;
+}
+
+.phone-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1;
+  color: #102542;
+}
+
+.server-badge {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.server-badge.online {
+  background: #ddf8e8;
+  color: #156a3a;
+}
+
+.server-badge.offline {
+  background: #fee7e7;
+  color: #a33434;
+}
+
+.panel {
+  padding: 18px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(109, 141, 173, 0.15);
+}
+
+.auth-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 6px;
+  border-radius: 16px;
+  background: #eef4fb;
+}
+
+.auth-switch button,
+.primary-button,
+.secondary-button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.auth-switch button {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: transparent;
+  color: #58708e;
+  font-weight: 700;
+}
+
+.auth-switch button.active {
+  background: #102542;
+  color: #ffffff;
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.92rem;
+  color: #40556f;
+}
+
+.auth-form input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid #d8e4f0;
+  background: #f8fbff;
+  font: inherit;
+}
+
+.primary-button {
+  width: 100%;
+  padding: 15px 18px;
+  border-radius: 16px;
+  background: #102542;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondary-button {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #edf3fb;
+  color: #24405f;
+  font-weight: 700;
+}
+
+.profile-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #102542;
+}
+
+.profile-email {
+  margin: 4px 0 0;
+  color: #6e8198;
+  font-size: 0.9rem;
+}
+
+.panel-title h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #102542;
+}
+
+.panel-title p {
+  margin: 4px 0 0;
+  color: #70849b;
+  font-size: 0.88rem;
+}
+
+.upload-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.upload-dropzone {
+  display: block;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px dashed #98afc8;
+  background: linear-gradient(180deg, #eff7ff 0%, #fdfefe 100%);
+  min-height: 220px;
+  cursor: pointer;
+}
+
+.upload-dropzone input {
+  display: none;
+}
+
+.upload-dropzone img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  display: block;
+}
+
+.upload-placeholder {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #4c6785;
+}
+
+.upload-placeholder strong {
+  font-size: 1.1rem;
+}
+
+.card-feed {
+  display: grid;
+  gap: 10px;
+}
+
+.feed-item {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 18px;
+  background: #f7fbff;
+}
+
+.feed-item img {
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  object-fit: cover;
+  background: #dde9f4;
+}
+
+.feed-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.feed-copy strong {
+  color: #142a45;
+  font-size: 0.95rem;
+}
+
+.feed-copy span {
+  color: #74859b;
+  font-size: 0.84rem;
+}
+
+.empty-state,
+.feedback {
+  margin: 0;
+  color: #667b93;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 520px) {
+  .phone-frame {
+    min-height: 100vh;
+    border-radius: 0;
+    padding-bottom: 32px;
+  }
+}
