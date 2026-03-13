@@ -313,6 +313,11 @@
   grid-template-columns: 1fr;
 }
 
+.feed-actions {
+  display: grid;
+  gap: 8px;
+}
+
 .digital-selector-panel {
   display: grid;
   gap: 14px;
@@ -326,7 +331,7 @@
 
 .digital-selector-item {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 18px;
   align-items: center;
   height: 148px;
@@ -360,32 +365,44 @@
   gap: 10px;
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 .digital-selector-headline {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .digital-selector-copy strong {
-  font-size: 2.1rem;
-  line-height: 1;
+  font-size: 1.8rem;
+  line-height: 1.05;
   color: #203149;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .digital-selector-copy em {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-style: normal;
   font-weight: 700;
   color: #5f7289;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .digital-selector-copy span {
-  font-size: 0.98rem;
+  font-size: 0.94rem;
   font-weight: 700;
   color: #647890;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .digital-selector-badge {
@@ -450,6 +467,17 @@
   gap: 28px;
 }
 
+.digital-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.digital-meta p {
+  margin: 0;
+  color: #61768e;
+  word-break: break-word;
+}
+
 .digital-label {
   margin: 0 0 8px;
   font-size: 0.74rem;
@@ -462,6 +490,7 @@
   font-size: 2rem;
   line-height: 1.04;
   color: #16283f;
+  word-break: break-word;
 }
 
 .digital-card-bottom {
@@ -478,6 +507,7 @@
 .digital-card-bottom strong {
   font-size: 0.95rem;
   color: #1d3046;
+  word-break: break-word;
 }
 
 .digital-card-details {
@@ -503,6 +533,7 @@
 .digital-card-details strong {
   font-size: 0.92rem;
   color: #1d3046;
+  word-break: break-word;
 }
 
 .raw-text-panel pre {
@@ -550,7 +581,11 @@
   }
 
   .digital-selector-copy strong {
-    font-size: 1.65rem;
+    font-size: 1.45rem;
+  }
+
+  .digital-selector-copy em {
+    font-size: 0.86rem;
   }
 
   .digital-selector-badge {

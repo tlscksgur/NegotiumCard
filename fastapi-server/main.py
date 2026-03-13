@@ -117,30 +117,81 @@ def is_noise(text: str) -> bool:
     return False
 
 
+def split_name_and_position(line: str) -> tuple[str, str] | None:
+    compact = " ".join(line.split())
+
+    korean_mixed = re.match(r"^([가-힣]{2,5})\s+(.+)$", compact)
+    if korean_mixed:
+        candidate_name = korean_mixed.group(1).strip()
+        candidate_position = korean_mixed.group(2).strip()
+        if candidate_position and re.search(r"[A-Za-z가-힣]", candidate_position):
+            return candidate_name, candidate_position
+
+    boundary = re.match(r"^([가-힣]{2,5})([A-Z][A-Za-z].+)$", compact)
+    if boundary:
+        return boundary.group(1).strip(), boundary.group(2).strip()
+
+    english_mixed = re.match(r"^([A-Za-z][A-Za-z\s.'-]{1,40})\s{2,}([A-Za-z][A-Za-z\s/&-]{1,40})$", compact)
+    if english_mixed:
+        return english_mixed.group(1).strip(), english_mixed.group(2).strip()
+
+    return None
+
+
+def is_address_line(line: str) -> bool:
+    lowered = line.lower()
+    address_keywords = (
+        "street", "st.", "st ", "road", "ro ", "city", "gu", "dong", "ro-gil", "busan", "seoul",
+        "anywhere", "suite", "floor", "building", "bldg", "avenue", "addr", "address",
+    )
+    return any(keyword in lowered for keyword in address_keywords) or bool(re.search(r"\d{2,}", line))
+
+
 def parse_ocr_fields(lines: list[str]) -> dict[str, str | None]:
     email_pattern = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
     phone_pattern = re.compile(r"(?:\+?\d{1,3}[-.\s]?)?(?:\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{4})")
+    department_keywords = ("팀", "본부", "부서", "센터", "실", "랩", "그룹", "chapter", "squad", "team", "department")
+    position_keywords = ("ceo", "cto", "manager", "director", "lead", "head", "staff", "engineer", "designer", "대표", "이사", "팀장", "매니저", "사원", "과장", "부장")
+    company_keywords = ("inc", "corp", "co.", "ltd", "llc", "company", "전자", "테크", "기업", "주식회사")
 
-    email = next((match.group(0) for line in lines for match in [email_pattern.search(line)] if match), None)
-    phone = next((match.group(0) for line in lines for match in [phone_pattern.search(line)] if match), None)
+    normalized_lines: list[str] = []
+    split_name: str | None = None
+    split_position: str | None = None
+
+    for line in lines:
+        split_line = split_name_and_position(line)
+        if split_line:
+            split_name = split_name or split_line[0]
+            split_position = split_position or split_line[1]
+            normalized_lines.extend(split_line)
+        else:
+            normalized_lines.append(line)
+
+    email = next((match.group(0) for line in normalized_lines for match in [email_pattern.search(line)] if match), None)
+    phone = next((match.group(0) for line in normalized_lines for match in [phone_pattern.search(line)] if match), None)
 
     remaining = [
-        line for line in lines
+        line for line in normalized_lines
         if line != email and line != phone and not email_pattern.search(line) and not phone_pattern.search(line)
     ]
 
-    department_keywords = ("팀", "본부", "부서", "센터", "실", "랩", "그룹", "chapter", "squad", "team", "department")
-    position_keywords = ("ceo", "cto", "manager", "director", "lead", "head", "staff", "engineer", "대표", "이사", "팀장", "매니저", "사원", "과장", "부장")
-    company_keywords = ("inc", "corp", "co.", "ltd", "llc", "company", "전자", "테크", "기업", "주식회사")
-
-    name = next((line for line in remaining if 1 < len(line) <= 20 and not any(char.isdigit() for char in line)), None)
+    name = split_name or next(
+        (line for line in remaining if 1 < len(line) <= 20 and not any(char.isdigit() for char in line) and not is_address_line(line)),
+        None,
+    )
     department = next((line for line in remaining if any(keyword in line.lower() for keyword in department_keywords)), None)
-    position = next((line for line in remaining if any(keyword in line.lower() for keyword in position_keywords)), None)
-    company = next((line for line in remaining if any(keyword in line.lower() for keyword in company_keywords)), None)
+    position = split_position or next((line for line in remaining if any(keyword in line.lower() for keyword in position_keywords)), None)
+    company = next(
+        (
+            line for line in remaining
+            if any(keyword in line.lower() for keyword in company_keywords) and line not in {name, department, position}
+        ),
+        None,
+    )
 
     if company is None:
         for line in remaining:
-            if line not in {name, department, position}:
+            if line not in {name, department, position} and not is_address_line(line):
                 company = line
                 break
 
