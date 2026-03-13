@@ -8,6 +8,7 @@ import com.negotium.card.entity.Person;
 import com.negotium.card.entity.User;
 import com.negotium.card.file.FileStorageService;
 import com.negotium.card.repository.CardRepository;
+import com.negotium.card.repository.OcrResultRepository;
 import com.negotium.card.repository.PersonRepository;
 import com.negotium.card.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class CardService {
     private final CardRepository cardRepository;
     private final UserRepository userRepository;
     private final PersonRepository personRepository;
+    private final OcrResultRepository ocrResultRepository;
     private final FileStorageService fileStorageService;
 
     @Transactional
@@ -69,6 +71,7 @@ public class CardService {
     @Transactional(readOnly = true)
     public List<CardResponse> getCards(Long userId) {
         return cardRepository.findAllByUserIdWithPerson(userId).stream()
+            .peek(this::attachOcrResult)
             .map(CardResponse::from)
             .toList();
     }
@@ -78,6 +81,11 @@ public class CardService {
         Card card = cardRepository.findByIdAndUserId(cardId, userId)
             .orElseThrow(() -> new IllegalArgumentException("Card not found."));
 
+        attachOcrResult(card);
         return CardResponse.from(card);
+    }
+
+    private void attachOcrResult(Card card) {
+        ocrResultRepository.findByCardId(card.getId()).ifPresent(card::setOcrResult);
     }
 }

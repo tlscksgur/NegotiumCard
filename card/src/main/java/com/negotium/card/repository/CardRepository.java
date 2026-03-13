@@ -21,6 +21,7 @@ public interface CardRepository extends JpaRepository<Card, Long> {
         select c
         from Card c
         left join fetch c.person p
+        left join fetch c.ocrResult
         left join fetch p.company
         left join fetch p.department
         left join fetch p.position

@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -50,6 +51,9 @@ public class Card {
     @Column(nullable = false, length = 30)
     @Builder.Default
     private CardStatus status = CardStatus.UPLOADED;
+
+    @OneToOne(mappedBy = "card")
+    private OcrResult ocrResult;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

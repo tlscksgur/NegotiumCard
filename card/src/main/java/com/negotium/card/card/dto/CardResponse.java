@@ -12,7 +12,8 @@ public record CardResponse(
     String status,
     LocalDateTime createdAt,
     LocalDateTime updatedAt,
-    PersonResponse person
+    PersonResponse person,
+    OcrResultResponse ocrResult
 ) {
 
     public static CardResponse from(Card card) {
@@ -23,7 +24,8 @@ public record CardResponse(
             card.getStatus().name(),
             card.getCreatedAt(),
             card.getUpdatedAt(),
-            card.getPerson() != null ? PersonResponse.from(card.getPerson()) : null
+            card.getPerson() != null ? PersonResponse.from(card.getPerson()) : null,
+            card.getOcrResult() != null ? OcrResultResponse.from(card.getOcrResult()) : null
         );
     }
 }

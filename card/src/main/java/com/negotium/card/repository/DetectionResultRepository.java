@@ -8,4 +8,6 @@ import java.util.List;
 public interface DetectionResultRepository extends JpaRepository<DetectionResult, Long> {
 
     List<DetectionResult> findByCardId(Long cardId);
+
+    void deleteByCardId(Long cardId);
 }
