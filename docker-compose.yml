@@ -1,0 +1,72 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: negotium-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-negotium_card}
+      MYSQL_ROOT_HOST: ${MYSQL_ROOT_HOST:-%}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: negotium-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  fastapi:
+    build:
+      context: ./fastapi-server
+    container_name: negotium-fastapi
+    environment:
+      SPRING_FILE_BASE_URL: ${SPRING_FILE_BASE_URL:-http://spring:8080}
+      YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-yolov8n.pt}
+      OCR_LANGS: ${OCR_LANGS:-kor+eng}
+    ports:
+      - "8000:8000"
+
+  spring:
+    build:
+      context: ./card
+    container_name: negotium-spring
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/negotium_card?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-root}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-root}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-change-this-secret-key-change-this-secret-key-123456}
+      APP_UPLOAD_DIR: ${APP_UPLOAD_DIR:-/data/uploads}
+      APP_FASTAPI_BASE_URL: ${APP_FASTAPI_BASE_URL:-http://fastapi:8000}
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads-data:/data/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      fastapi:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./NegotiumCard-front/negotiumCard
+    container_name: negotium-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      spring:
+        condition: service_started
+
+volumes:
+  mysql-data:
+  redis-data:
+  uploads-data:

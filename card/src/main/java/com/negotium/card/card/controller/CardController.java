@@ -2,6 +2,7 @@ package com.negotium.card.card.controller;
 
 import com.negotium.card.card.dto.CardCreateRequest;
 import com.negotium.card.card.dto.CardResponse;
+import com.negotium.card.card.dto.OcrResultUpdateRequest;
 import com.negotium.card.card.service.CardService;
 import com.negotium.card.security.SecurityUser;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -53,5 +55,19 @@ public class CardController {
     @GetMapping("/{id}")
     public CardResponse getCard(@PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
         return cardService.getCard(id, user.getId());
+    }
+
+    @PostMapping("/{id}/analyze")
+    public CardResponse analyzeCard(@PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
+        return cardService.analyzeCard(user.getId(), id);
+    }
+
+    @PatchMapping("/{id}/ocr")
+    public CardResponse updateOcrResult(
+        @PathVariable Long id,
+        @Valid @RequestBody OcrResultUpdateRequest request,
+        @AuthenticationPrincipal SecurityUser user
+    ) {
+        return cardService.updateOcrResult(user.getId(), id, request);
     }
 }

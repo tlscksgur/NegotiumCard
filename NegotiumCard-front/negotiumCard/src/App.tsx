@@ -24,18 +24,45 @@ type OcrResult = {
   phone: string | null
 }
 
+type Person = {
+  id: number
+  name: string | null
+  normalizedName: string | null
+  email: string | null
+  phone: string | null
+  companyId: number | null
+  companyName: string | null
+  departmentId: number | null
+  departmentName: string | null
+  positionId: number | null
+  positionName: string | null
+}
+
 type CardResponse = {
   id: number
   imageUrl: string
   originalFileName: string | null
   status: string
   createdAt: string
+  updatedAt: string
+  person: Person | null
   ocrResult: OcrResult | null
 }
 
 type ApiError = {
   detail?: string
   message?: string
+  error?: string
+}
+
+type OcrUpdateRequest = {
+  rawText?: string | null
+  name?: string | null
+  company?: string | null
+  department?: string | null
+  position?: string | null
+  email?: string | null
+  phone?: string | null
 }
 
 const AUTH_STORAGE_KEY = 'negotium-auth'
@@ -43,11 +70,39 @@ const AUTH_STORAGE_KEY = 'negotium-auth'
 function getInitialBadge(name?: string | null) {
   const base = (name ?? '').trim()
   if (!base) {
-    return '명'
+    return 'NC'
   }
 
   const compact = base.replace(/\s+/g, '')
-  return compact.slice(0, Math.min(2, compact.length))
+  return compact.slice(0, Math.min(2, compact.length)).toUpperCase()
+}
+
+function getErrorMessage(data: unknown) {
+  if (typeof data === 'string') {
+    return data
+  }
+
+  if (typeof data === 'object' && data !== null) {
+    const apiError = data as ApiError
+    return apiError.detail ?? apiError.message ?? apiError.error ?? 'Request failed.'
+  }
+
+  return 'Request failed.'
+}
+
+async function fetchCards(accessToken: string) {
+  const response = await fetch('/api/v1/cards', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    const errorBody = await parseMaybeJson(response)
+    throw new Error(getErrorMessage(errorBody))
+  }
+
+  return (await response.json()) as CardResponse[]
 }
 
 function App() {
@@ -62,21 +117,27 @@ function MobileCardApp() {
   const navigate = useNavigate()
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [auth, setAuth] = useState<AuthResponse | null>(null)
+  const [name, setName] = useState('Test User')
   const [email, setEmail] = useState('tester@example.com')
   const [password, setPassword] = useState('password123')
-  const [name, setName] = useState('Test User')
-  const [serverStatus, setServerStatus] = useState('연결 확인 중...')
+  const [serverStatus, setServerStatus] = useState('checking server...')
   const [cards, setCards] = useState<CardResponse[]>([])
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [analyzingCardId, setAnalyzingCardId] = useState<number | null>(null)
-  const [feedback, setFeedback] = useState('앱에 로그인한 뒤 명함 이미지를 올리고 분석하세요.')
+  const [feedback, setFeedback] = useState('Sign in and upload a business card to start.')
 
   useEffect(() => {
     const savedAuth = window.localStorage.getItem(AUTH_STORAGE_KEY)
-    if (savedAuth) {
+    if (!savedAuth) {
+      return
+    }
+
+    try {
       setAuth(JSON.parse(savedAuth) as AuthResponse)
+    } catch {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY)
     }
   }, [])
 
@@ -84,13 +145,14 @@ function MobileCardApp() {
     const checkServer = async () => {
       try {
         const response = await fetch('/api/test')
-        setServerStatus(await response.text())
+        const text = await response.text()
+        setServerStatus(text || 'server ok')
       } catch {
         setServerStatus('server offline')
       }
     }
 
-    checkServer()
+    void checkServer()
   }, [])
 
   useEffect(() => {
@@ -99,32 +161,16 @@ function MobileCardApp() {
       return
     }
 
-    void refreshCards(auth.accessToken)
+    void refreshCards()
   }, [auth])
 
-  const readError = (data: unknown) => {
-    if (typeof data === 'object' && data !== null) {
-      const apiError = data as ApiError
-      return apiError.detail ?? apiError.message ?? '요청 처리 실패'
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
     }
-    return '요청 처리 실패'
-  }
-
-  const refreshCards = async (accessToken: string) => {
-    const response = await fetch('/api/v1/cards', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-
-    if (!response.ok) {
-      const error = (await response.json()) as ApiError
-      throw new Error(readError(error))
-    }
-
-    const data = (await response.json()) as CardResponse[]
-    setCards(data)
-  }
+  }, [previewUrl])
 
   const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -140,17 +186,17 @@ function MobileCardApp() {
         body: JSON.stringify(authMode === 'signup' ? { name, email, password } : { email, password }),
       })
 
-      const data = (await response.json()) as AuthResponse | ApiError
+      const payload = await parseMaybeJson(response)
       if (!response.ok) {
-        throw new Error(readError(data))
+        throw new Error(getErrorMessage(payload))
       }
 
-      const nextAuth = data as AuthResponse
+      const nextAuth = payload as AuthResponse
       setAuth(nextAuth)
       window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuth))
-      setFeedback(`${nextAuth.name} 계정으로 로그인되었습니다.`)
+      setFeedback(`Welcome, ${nextAuth.name}.`)
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : '인증 중 오류가 발생했습니다.')
+      setFeedback(error instanceof Error ? error.message : 'Authentication failed.')
     } finally {
       setLoading(false)
     }
@@ -159,6 +205,11 @@ function MobileCardApp() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null
     setSelectedFile(file)
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+    }
+
     setPreviewUrl(file ? URL.createObjectURL(file) : null)
   }
 
@@ -182,17 +233,20 @@ function MobileCardApp() {
         body: formData,
       })
 
-      const data = (await response.json()) as CardResponse | ApiError
+      const payload = await parseMaybeJson(response)
       if (!response.ok) {
-        throw new Error(readError(data))
+        throw new Error(getErrorMessage(payload))
       }
 
-      await refreshCards(auth.accessToken)
-      setFeedback('명함 이미지가 업로드되었습니다. 이제 분석을 실행하세요.')
+      setCards(await fetchCards(auth.accessToken))
+      setFeedback('Card uploaded successfully. Run analysis from the archive or latest feed.')
       setSelectedFile(null)
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
       setPreviewUrl(null)
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : '업로드 중 오류가 발생했습니다.')
+      setFeedback(error instanceof Error ? error.message : 'Upload failed.')
     } finally {
       setLoading(false)
     }
@@ -207,33 +261,23 @@ function MobileCardApp() {
     setFeedback('')
 
     try {
-      const yoloResponse = await fetch(`/api/v1/analyze/cards/${cardId}/yolo`, {
+      const response = await fetch(`/api/v1/cards/${cardId}/analyze`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${auth.accessToken}`,
         },
       })
-      const yoloData = (await yoloResponse.json()) as ApiError
-      if (!yoloResponse.ok) {
-        throw new Error(readError(yoloData))
+
+      const payload = await parseMaybeJson(response)
+      if (!response.ok) {
+        throw new Error(getErrorMessage(payload))
       }
 
-      const ocrResponse = await fetch(`/api/v1/analyze/cards/${cardId}/ocr`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${auth.accessToken}`,
-        },
-      })
-      const ocrData = (await ocrResponse.json()) as ApiError
-      if (!ocrResponse.ok) {
-        throw new Error(readError(ocrData))
-      }
-
-      await refreshCards(auth.accessToken)
-      setFeedback('명함 분석이 완료되었습니다. 온라인 명함에서 결과를 확인하세요.')
+      setCards(await fetchCards(auth.accessToken))
+      setFeedback('Analysis completed.')
       navigate(`/digital/${cardId}`)
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : '분석 중 오류가 발생했습니다.')
+      setFeedback(error instanceof Error ? error.message : 'Analysis failed.')
     } finally {
       setAnalyzingCardId(null)
     }
@@ -243,10 +287,25 @@ function MobileCardApp() {
     setAuth(null)
     setCards([])
     setSelectedFile(null)
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+    }
     setPreviewUrl(null)
     window.localStorage.removeItem(AUTH_STORAGE_KEY)
-    setFeedback('로그아웃했습니다.')
+    setFeedback('Logged out.')
     navigate('/')
+  }
+
+  const refreshCards = async () => {
+    if (!auth) {
+      return
+    }
+
+    try {
+      setCards(await fetchCards(auth.accessToken))
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Failed to load cards.')
+    }
   }
 
   if (!auth) {
@@ -256,46 +315,44 @@ function MobileCardApp() {
           <div className="phone-header">
             <div>
               <p className="eyebrow">NEGOTIUM CARD APP</p>
-              <h1>명함을 온라인 카드로</h1>
+              <h1>Digital business cards</h1>
             </div>
-            <span className={`server-badge ${serverStatus === 'server ok' ? 'online' : 'offline'}`}>
-              {serverStatus}
-            </span>
+            <span className={`server-badge ${serverStatus === 'server ok' ? 'online' : 'offline'}`}>{serverStatus}</span>
           </div>
 
           <section className="panel hero-panel">
             <p className="hero-kicker">MOBILE WEB MVP</p>
-            <h2>촬영한 명함을 올리고 조직 정보를 디지털로 관리합니다.</h2>
-            <p>YOLO와 OCR 분석 결과를 바로 명함 UI로 정리하고, 보관함에서 한 번에 확인할 수 있습니다.</p>
+            <h2>Upload, analyze, and organize business cards in one place.</h2>
+            <p>The app connects Spring, FastAPI, and the card archive so you can inspect analysis results immediately.</p>
           </section>
 
           <section className="panel auth-panel">
             <div className="auth-switch">
               <button className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')} type="button">
-                로그인
+                Login
               </button>
               <button className={authMode === 'signup' ? 'active' : ''} onClick={() => setAuthMode('signup')} type="button">
-                회원가입
+                Sign up
               </button>
             </div>
 
             <form className="auth-form" onSubmit={handleAuthSubmit}>
               {authMode === 'signup' && (
                 <label>
-                  이름
+                  Name
                   <input value={name} onChange={(event) => setName(event.target.value)} />
                 </label>
               )}
               <label>
-                이메일
+                Email
                 <input value={email} onChange={(event) => setEmail(event.target.value)} />
               </label>
               <label>
-                비밀번호
+                Password
                 <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
               </label>
               <button className="primary-button" disabled={loading} type="submit">
-                {loading ? '처리 중...' : authMode === 'login' ? '로그인' : '회원가입'}
+                {loading ? 'Processing...' : authMode === 'login' ? 'Login' : 'Sign up'}
               </button>
             </form>
           </section>
@@ -312,19 +369,19 @@ function MobileCardApp() {
         <header className="top-bar">
           <div>
             <p className="eyebrow">NEGOTIUM CARD APP</p>
-            <h1>{auth.name}의 명함함</h1>
+            <h1>{auth.name}'s cards</h1>
           </div>
           <button className="secondary-button" onClick={handleLogout} type="button">
-            로그아웃
+            Logout
           </button>
         </header>
 
         <nav className="tab-nav">
           <NavLink end to="/">
-            업로드
+            Upload
           </NavLink>
-          <NavLink to="/cards">보관함</NavLink>
-          <NavLink to="/digital">온라인 명함</NavLink>
+          <NavLink to="/cards">Archive</NavLink>
+          <NavLink to="/digital">Digital card</NavLink>
         </nav>
 
         <Routes>
@@ -344,8 +401,8 @@ function MobileCardApp() {
             }
           />
           <Route path="/cards" element={<ArchivePage cards={cards} onAnalyze={handleAnalyzeCard} analyzingCardId={analyzingCardId} />} />
-          <Route path="/digital" element={<DigitalCardPage cards={cards} />} />
-          <Route path="/digital/:cardId" element={<DigitalCardPage cards={cards} />} />
+          <Route path="/digital" element={<DigitalCardPage cards={cards} accessToken={auth.accessToken} onRefreshCards={refreshCards} />} />
+          <Route path="/digital/:cardId" element={<DigitalCardPage cards={cards} accessToken={auth.accessToken} onRefreshCards={refreshCards} />} />
         </Routes>
 
         <p className="feedback">{feedback}</p>
@@ -377,60 +434,55 @@ function HomePage({
     <div className="page-stack">
       <section className="panel profile-panel">
         <div>
-          <p className="profile-name">최근 업로드 {cards.length}장</p>
-          <p className="profile-email">업로드 후 분석을 실행하면 온라인 명함으로 변환됩니다.</p>
+          <p className="profile-name">Cards stored: {cards.length}</p>
+          <p className="profile-email">Upload a card, then run OCR and YOLO analysis from the feed.</p>
         </div>
       </section>
 
       <section className="panel upload-panel">
         <div className="panel-title">
-          <h2>명함 촬영 / 업로드</h2>
-          <p>모바일 앱처럼 사진을 올리고 바로 분석할 수 있습니다.</p>
+          <h2>Card upload</h2>
+          <p>Use the dropzone to add a business card image.</p>
         </div>
 
         <label className="upload-dropzone">
           <input accept="image/*" onChange={onFileChange} type="file" />
           {previewUrl ? (
-            <img alt="명함 미리보기" src={previewUrl} />
+            <img alt="Business card preview" src={previewUrl} />
           ) : (
             <div className="upload-placeholder">
-              <strong>Tap to Upload</strong>
-              <span>PNG, JPG, HEIC</span>
+              <strong>Tap to upload</strong>
+              <span>PNG, JPG, WEBP</span>
             </div>
           )}
         </label>
 
         <button className="primary-button" disabled={!selectedFile || loading} onClick={onUpload} type="button">
-          {loading ? '업로드 중...' : '명함 업로드'}
+          {loading ? 'Uploading...' : 'Upload card'}
         </button>
       </section>
 
       <section className="panel feed-panel">
         <div className="panel-title">
-          <h2>최근 명함</h2>
-          <p>분석 완료 후 온라인 명함 페이지에서 편집 전 결과를 확인합니다.</p>
+          <h2>Latest cards</h2>
+          <p>Run analysis from the latest uploaded cards.</p>
         </div>
 
         <div className="card-feed">
           {cards.length === 0 ? (
-            <p className="empty-state">아직 업로드된 명함이 없습니다.</p>
+            <p className="empty-state">No cards uploaded yet.</p>
           ) : (
             cards.slice(0, 3).map((card) => (
               <article className="feed-item" key={card.id}>
-                <img alt={card.originalFileName ?? '명함 이미지'} src={card.imageUrl} />
+                <img alt={card.originalFileName ?? 'Business card'} src={card.imageUrl} />
                 <div className="feed-copy">
                   <strong>{card.ocrResult?.name ?? card.originalFileName ?? `card-${card.id}`}</strong>
-                  <span>{card.ocrResult?.company ?? '회사 분석 전'}</span>
+                  <span>{card.ocrResult?.company ?? 'No company detected yet'}</span>
                   <span>{card.status}</span>
                 </div>
                 <div className="feed-actions">
-                  <button
-                    className="secondary-button"
-                    disabled={analyzingCardId === card.id}
-                    onClick={() => onAnalyze(card.id)}
-                    type="button"
-                  >
-                    {analyzingCardId === card.id ? '분석 중...' : '명함 변환'}
+                  <button className="secondary-button" disabled={analyzingCardId === card.id} onClick={() => onAnalyze(card.id)} type="button">
+                    {analyzingCardId === card.id ? 'Analyzing...' : 'Analyze'}
                   </button>
                 </div>
               </article>
@@ -455,34 +507,29 @@ function ArchivePage({
     <div className="page-stack">
       <section className="panel archive-intro">
         <div className="panel-title">
-          <h2>내 명함 보관함</h2>
-          <p>찍어둔 명함을 한 번에 보고, 원하는 카드만 다시 분석할 수 있습니다.</p>
+          <h2>Archive</h2>
+          <p>Re-run analysis or open the digital card from here.</p>
         </div>
       </section>
 
       <section className="archive-grid">
         {cards.length === 0 ? (
-          <p className="empty-state panel">보관함이 비어 있습니다.</p>
+          <p className="empty-state panel">The archive is empty.</p>
         ) : (
           cards.map((card) => (
             <article className="archive-card" key={card.id}>
-              <img alt={card.originalFileName ?? '명함 이미지'} src={card.imageUrl} />
+              <img alt={card.originalFileName ?? 'Business card'} src={card.imageUrl} />
               <div className="archive-copy">
                 <strong>{card.ocrResult?.name ?? card.originalFileName ?? `card-${card.id}`}</strong>
-                <span>{card.ocrResult?.company ?? '회사 인식 전'}</span>
-                <span>{card.ocrResult?.position ?? '직책 인식 전'}</span>
+                <span>{card.ocrResult?.company ?? 'No company detected yet'}</span>
+                <span>{card.ocrResult?.position ?? 'No position detected yet'}</span>
               </div>
               <div className="archive-actions">
-                <button
-                  className="secondary-button"
-                  disabled={analyzingCardId === card.id}
-                  onClick={() => onAnalyze(card.id)}
-                  type="button"
-                >
-                  {analyzingCardId === card.id ? '분석 중...' : '재분석'}
+                <button className="secondary-button" disabled={analyzingCardId === card.id} onClick={() => onAnalyze(card.id)} type="button">
+                  {analyzingCardId === card.id ? 'Analyzing...' : 'Analyze'}
                 </button>
                 <Link className="inline-link" to={`/digital/${card.id}`}>
-                  온라인 명함 보기
+                  Open digital card
                 </Link>
               </div>
             </article>
@@ -493,14 +540,84 @@ function ArchivePage({
   )
 }
 
-function DigitalCardPage({ cards }: { cards: CardResponse[] }) {
+function DigitalCardPage({
+  cards,
+  accessToken,
+  onRefreshCards,
+}: {
+  cards: CardResponse[]
+  accessToken: string
+  onRefreshCards: () => Promise<void>
+}) {
   const { cardId } = useParams()
   const selectedCard = cards.find((card) => String(card.id) === cardId) ?? cards[0]
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState('')
+  const [rawText, setRawText] = useState('')
+  const [name, setName] = useState('')
+  const [company, setCompany] = useState('')
+  const [department, setDepartment] = useState('')
+  const [position, setPosition] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+
+  useEffect(() => {
+    const ocr = selectedCard?.ocrResult
+    setRawText(ocr?.rawText ?? '')
+    setName(ocr?.name ?? '')
+    setCompany(ocr?.company ?? '')
+    setDepartment(ocr?.department ?? '')
+    setPosition(ocr?.position ?? '')
+    setEmail(ocr?.email ?? '')
+    setPhone(ocr?.phone ?? '')
+    setStatus('')
+  }, [selectedCard?.id])
+
+  const handleSaveOcr = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCard) {
+      return
+    }
+
+    setSaving(true)
+    setStatus('')
+
+    try {
+      const response = await fetch(`/api/v1/cards/${selectedCard.id}/ocr`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rawText: toNullable(rawText),
+          name: toNullable(name),
+          company: toNullable(company),
+          department: toNullable(department),
+          position: toNullable(position),
+          email: toNullable(email),
+          phone: toNullable(phone),
+        } satisfies OcrUpdateRequest),
+      })
+
+      const payload = await parseMaybeJson(response)
+      if (!response.ok) {
+        throw new Error(getErrorMessage(payload))
+      }
+
+      await onRefreshCards()
+      setStatus('OCR data saved.')
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Failed to save OCR data.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   if (!selectedCard) {
     return (
       <section className="panel">
-        <p className="empty-state">명함을 먼저 업로드하고 분석해 주세요.</p>
+        <p className="empty-state">Upload a card first, then open the digital card view.</p>
       </section>
     )
   }
@@ -511,8 +628,8 @@ function DigitalCardPage({ cards }: { cards: CardResponse[] }) {
     <div className="page-stack">
       <section className="panel digital-selector-panel">
         <div className="panel-title">
-          <h2>온라인 명함 목록</h2>
-          <p>지금까지 올린 명함 중에서 하나를 골라 상세 명함으로 확인하세요.</p>
+          <h2>Digital cards</h2>
+          <p>Select a card to inspect analysis results.</p>
         </div>
 
         <div className="digital-selector-list">
@@ -527,7 +644,7 @@ function DigitalCardPage({ cards }: { cards: CardResponse[] }) {
                   <strong>{card.ocrResult?.name ?? card.originalFileName ?? `card-${card.id}`}</strong>
                   <em>{card.ocrResult?.position ?? card.status}</em>
                 </div>
-                <span>{card.ocrResult?.company ?? '회사 인식 전'}</span>
+                <span>{card.ocrResult?.company ?? 'No company detected yet'}</span>
               </div>
               <div className="digital-selector-badge" aria-hidden="true">
                 {getInitialBadge(card.ocrResult?.name)}
@@ -539,18 +656,18 @@ function DigitalCardPage({ cards }: { cards: CardResponse[] }) {
 
       <section className="digital-card">
         <div className="digital-card-top">
-          <span className="chip">{ocr?.company ?? '회사 미인식'}</span>
+          <span className="chip">{ocr?.company ?? 'Unknown company'}</span>
           <span className="chip muted">{selectedCard.status}</span>
         </div>
 
         <div className="digital-card-main">
           <div>
             <p className="digital-label">NAME</p>
-            <h2>{ocr?.name ?? '이름 인식 전'}</h2>
+            <h2>{ocr?.name ?? 'Unknown name'}</h2>
           </div>
           <div className="digital-meta">
-            <p>{ocr?.position ?? '직책 인식 전'}</p>
-            <p>{ocr?.department ?? '부서 인식 전'}</p>
+            <p>{ocr?.position ?? 'Unknown position'}</p>
+            <p>{ocr?.department ?? 'Unknown department'}</p>
           </div>
         </div>
 
@@ -587,21 +704,69 @@ function DigitalCardPage({ cards }: { cards: CardResponse[] }) {
 
       <section className="panel image-panel">
         <div className="panel-title">
-          <h2>원본 명함</h2>
-          <p>OCR 결과와 함께 비교할 수 있게 원본을 같이 보여줍니다.</p>
+          <h2>Original image</h2>
+          <p>Compare the OCR result with the original card image.</p>
         </div>
-        <img alt={selectedCard.originalFileName ?? '원본 명함'} className="full-card-image" src={selectedCard.imageUrl} />
+        <img alt={selectedCard.originalFileName ?? 'Business card'} className="full-card-image" src={selectedCard.imageUrl} />
       </section>
 
       <section className="panel raw-text-panel">
         <div className="panel-title">
-          <h2>추출된 텍스트</h2>
-          <p>OCR 원문입니다. 이후 수정 기능으로 연결할 수 있습니다.</p>
+          <h2>Raw text</h2>
+          <p>The OCR output is shown here for editing or verification.</p>
         </div>
-        <pre>{ocr?.rawText ?? '아직 OCR 결과가 없습니다.'}</pre>
+        <form className="ocr-editor" onSubmit={handleSaveOcr}>
+          <label>
+            Raw text
+            <textarea value={rawText} onChange={(event) => setRawText(event.target.value)} rows={6} />
+          </label>
+          <label>
+            Name
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label>
+            Company
+            <input value={company} onChange={(event) => setCompany(event.target.value)} />
+          </label>
+          <label>
+            Department
+            <input value={department} onChange={(event) => setDepartment(event.target.value)} />
+          </label>
+          <label>
+            Position
+            <input value={position} onChange={(event) => setPosition(event.target.value)} />
+          </label>
+          <label>
+            Email
+            <input value={email} onChange={(event) => setEmail(event.target.value)} />
+          </label>
+          <label>
+            Phone
+            <input value={phone} onChange={(event) => setPhone(event.target.value)} />
+          </label>
+          <button className="primary-button" disabled={saving} type="submit">
+            {saving ? 'Saving...' : 'Save OCR data'}
+          </button>
+        </form>
+        <p className="feedback">{status || ocr?.rawText || 'No OCR result yet.'}</p>
       </section>
     </div>
   )
+}
+
+async function parseMaybeJson(response: Response) {
+  const contentType = response.headers.get('content-type') ?? ''
+
+  if (contentType.includes('application/json')) {
+    return response.json()
+  }
+
+  return response.text()
+}
+
+function toNullable(value: string) {
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
 }
 
 export default App

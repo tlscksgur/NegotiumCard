@@ -2,6 +2,7 @@ package com.negotium.card.auth.controller;
 
 import com.negotium.card.auth.dto.AuthResponse;
 import com.negotium.card.auth.dto.LoginRequest;
+import com.negotium.card.auth.dto.RefreshRequest;
 import com.negotium.card.auth.dto.SignupRequest;
 import com.negotium.card.auth.service.AuthService;
 import jakarta.validation.Valid;
@@ -29,5 +30,10 @@ public class AuthController {
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody RefreshRequest request) {
+        return authService.refresh(request);
     }
 }

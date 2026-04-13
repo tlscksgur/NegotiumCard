@@ -3,21 +3,28 @@ import re
 import tempfile
 from contextlib import suppress
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
 
 import httpx
+import pytesseract
 from fastapi import FastAPI, HTTPException
-from ocrmac import ocrmac
 from pydantic import BaseModel, ConfigDict, Field
-from ultralytics import YOLO
+
+try:
+    from ultralytics import YOLO
+except Exception:  # pragma: no cover - optional runtime dependency
+    YOLO = None
 
 
 DEFAULT_MODEL_PATH = os.getenv("YOLO_MODEL_PATH", "yolov8n.pt")
 SPRING_FILE_BASE_URL = os.getenv("SPRING_FILE_BASE_URL", "http://localhost:8080")
 YOLO_CONFIDENCE = float(os.getenv("YOLO_CONFIDENCE", "0.25"))
+OCR_LANGS = os.getenv("OCR_LANGS", "kor+eng")
 
-app = FastAPI(title="Negotium Card AI Server", version="0.2.0")
+app = FastAPI(title="Negotium Card AI Server", version="0.3.0")
 
-_model: YOLO | None = None
+_model: Any = None
 _model_error: str | None = None
 
 
@@ -67,6 +74,11 @@ def load_model() -> None:
     if _model is not None:
         return
 
+    if YOLO is None:
+        _model = None
+        _model_error = "YOLO dependency is not installed."
+        return
+
     try:
         _model = YOLO(DEFAULT_MODEL_PATH)
         _model_error = None
@@ -75,7 +87,7 @@ def load_model() -> None:
         _model_error = str(error)
 
 
-def require_model() -> YOLO:
+def require_model() -> Any:
     load_model()
     if _model is None:
         message = "YOLO model could not be loaded."
@@ -87,6 +99,10 @@ def require_model() -> YOLO:
 
 def resolve_image_url(image_url: str) -> str:
     if image_url.startswith(("http://", "https://")):
+        parsed_url = urlparse(image_url)
+        spring_url = urlparse(SPRING_FILE_BASE_URL)
+        if parsed_url.netloc and parsed_url.netloc != spring_url.netloc:
+            raise HTTPException(status_code=400, detail="External image URLs are not allowed.")
         return image_url
     if image_url.startswith("/"):
         return f"{SPRING_FILE_BASE_URL.rstrip('/')}{image_url}"
@@ -120,14 +136,14 @@ def is_noise(text: str) -> bool:
 def split_name_and_position(line: str) -> tuple[str, str] | None:
     compact = " ".join(line.split())
 
-    korean_mixed = re.match(r"^([가-힣]{2,5})\s+(.+)$", compact)
+    korean_mixed = re.match(r"^([\uac00-\ud7a3]{2,5})\s+(.+)$", compact)
     if korean_mixed:
         candidate_name = korean_mixed.group(1).strip()
         candidate_position = korean_mixed.group(2).strip()
-        if candidate_position and re.search(r"[A-Za-z가-힣]", candidate_position):
+        if candidate_position and re.search(r"[A-Za-z\uac00-\ud7a3]", candidate_position):
             return candidate_name, candidate_position
 
-    boundary = re.match(r"^([가-힣]{2,5})([A-Z][A-Za-z].+)$", compact)
+    boundary = re.match(r"^([\uac00-\ud7a3]{2,5})([A-Z][A-Za-z].+)$", compact)
     if boundary:
         return boundary.group(1).strip(), boundary.group(2).strip()
 
@@ -141,8 +157,36 @@ def split_name_and_position(line: str) -> tuple[str, str] | None:
 def is_address_line(line: str) -> bool:
     lowered = line.lower()
     address_keywords = (
-        "street", "st.", "st ", "road", "ro ", "city", "gu", "dong", "ro-gil", "busan", "seoul",
-        "anywhere", "suite", "floor", "building", "bldg", "avenue", "addr", "address",
+        "street",
+        "st.",
+        "st ",
+        "road",
+        "ro ",
+        "city",
+        "gu",
+        "dong",
+        "ro-gil",
+        "busan",
+        "seoul",
+        "suite",
+        "floor",
+        "building",
+        "bldg",
+        "avenue",
+        "addr",
+        "address",
+        "\uc11c\uc6b8",
+        "\ubd80\uc0b0",
+        "\uad6c",
+        "\ub3d9",
+        "\ub85c",
+        "\uae38",
+        "\ucda9",
+        "\uccad",
+        "\uc2dc",
+        "\uc9c0\ud558",
+        "\uc2e4",
+        "\uc804\ud654",
     )
     return any(keyword in lowered for keyword in address_keywords) or bool(re.search(r"\d{2,}", line))
 
@@ -150,9 +194,67 @@ def is_address_line(line: str) -> bool:
 def parse_ocr_fields(lines: list[str]) -> dict[str, str | None]:
     email_pattern = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
     phone_pattern = re.compile(r"(?:\+?\d{1,3}[-.\s]?)?(?:\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{4})")
-    department_keywords = ("팀", "본부", "부서", "센터", "실", "랩", "그룹", "chapter", "squad", "team", "department")
-    position_keywords = ("ceo", "cto", "manager", "director", "lead", "head", "staff", "engineer", "designer", "대표", "이사", "팀장", "매니저", "사원", "과장", "부장")
-    company_keywords = ("inc", "corp", "co.", "ltd", "llc", "company", "전자", "테크", "기업", "주식회사")
+    department_keywords = (
+        "team",
+        "dept",
+        "department",
+        "division",
+        "chapter",
+        "squad",
+        "group",
+        "\ubd80\uc11c",
+        "\ubcf8\ubd80",
+        "\ud300",
+        "\ud30c\ud2b8",
+        "\uc2e4",
+        "\uc870\uc9c1",
+    )
+    position_keywords = (
+        "ceo",
+        "cto",
+        "cfo",
+        "coo",
+        "vp",
+        "manager",
+        "director",
+        "lead",
+        "head",
+        "staff",
+        "engineer",
+        "designer",
+        "chief",
+        "president",
+        "intern",
+        "member",
+        "\uc9c1\ucc45",
+        "\ub300\ud45c",
+        "\uc0ac\uc7a5",
+        "\uc804\ubb34",
+        "\uc0c1\ubb34",
+        "\ubd80\uc7a5",
+        "\ucc28\uc7a5",
+        "\uacfc\uc7a5",
+        "\ub300\ub9ac",
+        "\uc8fc\uc784",
+        "\uc0ac\uc6d0",
+    )
+    company_keywords = (
+        "inc",
+        "corp",
+        "co.",
+        "ltd",
+        "llc",
+        "company",
+        "group",
+        "systems",
+        "tech",
+        "\uc8fc\uc2dd\ud68c\uc0ac",
+        "\ud68c\uc0ac",
+        "\uae30\uc5c5",
+        "\uadf8\ub8f9",
+        "\ud14c\ud06c",
+        "\uc2dc\uc2a4\ud15c",
+    )
 
     normalized_lines: list[str] = []
     split_name: str | None = None
@@ -171,19 +273,25 @@ def parse_ocr_fields(lines: list[str]) -> dict[str, str | None]:
     phone = next((match.group(0) for line in normalized_lines for match in [phone_pattern.search(line)] if match), None)
 
     remaining = [
-        line for line in normalized_lines
+        line
+        for line in normalized_lines
         if line != email and line != phone and not email_pattern.search(line) and not phone_pattern.search(line)
     ]
 
     name = split_name or next(
-        (line for line in remaining if 1 < len(line) <= 20 and not any(char.isdigit() for char in line) and not is_address_line(line)),
+        (
+            line
+            for line in remaining
+            if 1 < len(line) <= 20 and not any(char.isdigit() for char in line) and not is_address_line(line)
+        ),
         None,
     )
     department = next((line for line in remaining if any(keyword in line.lower() for keyword in department_keywords)), None)
     position = split_position or next((line for line in remaining if any(keyword in line.lower() for keyword in position_keywords)), None)
     company = next(
         (
-            line for line in remaining
+            line
+            for line in remaining
             if any(keyword in line.lower() for keyword in company_keywords) and line not in {name, department, position}
         ),
         None,
@@ -219,6 +327,7 @@ def health() -> dict[str, object]:
         "modelLoaded": _model is not None,
         "modelPath": DEFAULT_MODEL_PATH,
         "modelError": _model_error,
+        "ocrLangs": OCR_LANGS,
     }
 
 
@@ -267,23 +376,13 @@ def analyze_ocr(request: OcrAnalyzeRequest) -> OcrAnalyzeResponse:
     image_path = download_image(request.image_url)
 
     try:
-        annotations = ocrmac.OCR(
-            str(image_path),
-            language_preference=["ko-KR", "en-US"],
-            recognition_level="accurate",
-        ).recognize()
-
-        sorted_lines = [
-            text.strip()
-            for text, _, bbox in sorted(annotations, key=lambda item: (round(item[2][1], 3), item[2][0]))
-            if not is_noise(text)
-        ]
-        raw_text = "\n".join(sorted_lines)
+        raw_text = pytesseract.image_to_string(str(image_path), lang=OCR_LANGS)
+        sorted_lines = [line.strip() for line in raw_text.splitlines() if not is_noise(line)]
         parsed = parse_ocr_fields(sorted_lines)
 
         return OcrAnalyzeResponse(
             image_url=request.image_url,
-            raw_text=raw_text,
+            raw_text="\n".join(sorted_lines),
             name=parsed["name"],
             company=parsed["company"],
             department=parsed["department"],
@@ -291,6 +390,8 @@ def analyze_ocr(request: OcrAnalyzeRequest) -> OcrAnalyzeResponse:
             email=parsed["email"],
             phone=parsed["phone"],
         )
+    except pytesseract.TesseractNotFoundError as error:  # pragma: no cover - runtime environment path
+        raise HTTPException(status_code=503, detail=f"OCR engine is not installed: {error}") from error
     except Exception as error:  # pragma: no cover - OCR runtime path
         raise HTTPException(status_code=500, detail=f"OCR failed: {error}") from error
     finally:

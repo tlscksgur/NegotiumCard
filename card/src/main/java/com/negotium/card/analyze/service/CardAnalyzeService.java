@@ -26,13 +26,14 @@ public class CardAnalyzeService {
     private final DetectionResultRepository detectionResultRepository;
     private final OcrResultRepository ocrResultRepository;
     private final FastApiService fastApiService;
+    private final CardStatusService cardStatusService;
 
     @Transactional
     public CardYoloAnalyzeResponse analyzeCardYolo(Long cardId, Long userId) {
         Card card = cardRepository.findByIdAndUserId(cardId, userId)
             .orElseThrow(() -> new IllegalArgumentException("Card not found."));
 
-        card.setStatus(CardStatus.ANALYZING);
+        cardStatusService.updateStatus(cardId, userId, CardStatus.ANALYZING);
 
         try {
             YoloAnalyzeResponse response = fastApiService.analyzeYolo(new YoloAnalyzeRequest(card.getImageUrl()));
@@ -57,11 +58,11 @@ public class CardAnalyzeService {
             return new CardYoloAnalyzeResponse(
                 card.getId(),
                 card.getImageUrl(),
-                card.getStatus().name(),
+                CardStatus.ANALYZED.name(),
                 response.detections()
             );
         } catch (RuntimeException error) {
-            card.setStatus(CardStatus.FAILED);
+            cardStatusService.updateStatus(cardId, userId, CardStatus.FAILED);
             throw error;
         }
     }
@@ -70,6 +71,8 @@ public class CardAnalyzeService {
     public CardOcrAnalyzeResponse analyzeCardOcr(Long cardId, Long userId) {
         Card card = cardRepository.findByIdAndUserId(cardId, userId)
             .orElseThrow(() -> new IllegalArgumentException("Card not found."));
+
+        cardStatusService.updateStatus(cardId, userId, CardStatus.ANALYZING);
 
         try {
             OcrAnalyzeResponse response = fastApiService.analyzeOcr(new OcrAnalyzeRequest(card.getImageUrl()));
@@ -85,11 +88,11 @@ public class CardAnalyzeService {
             return new CardOcrAnalyzeResponse(
                 card.getId(),
                 card.getImageUrl(),
-                card.getStatus().name(),
+                CardStatus.ANALYZED.name(),
                 OcrResultResponse.from(savedOcrResult)
             );
         } catch (RuntimeException error) {
-            card.setStatus(CardStatus.FAILED);
+            cardStatusService.updateStatus(cardId, userId, CardStatus.FAILED);
             throw error;
         }
     }

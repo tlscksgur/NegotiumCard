@@ -2,6 +2,7 @@ package com.negotium.card.auth.service;
 
 import com.negotium.card.auth.dto.AuthResponse;
 import com.negotium.card.auth.dto.LoginRequest;
+import com.negotium.card.auth.dto.RefreshRequest;
 import com.negotium.card.auth.dto.SignupRequest;
 import com.negotium.card.entity.User;
 import com.negotium.card.entity.UserRole;
@@ -54,6 +55,24 @@ public class AuthService {
             .orElseThrow(() -> new IllegalArgumentException("User not found."));
 
         return buildResponse(user, authentication);
+    }
+
+    public AuthResponse refresh(RefreshRequest request) {
+        if (!jwtTokenProvider.validateToken(request.refreshToken())) {
+            throw new IllegalArgumentException("Refresh token is invalid.");
+        }
+
+        String email = jwtTokenProvider.getUsername(request.refreshToken());
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new IllegalArgumentException("User not found."));
+
+        return new AuthResponse(
+            user.getId(),
+            user.getName(),
+            user.getEmail(),
+            jwtTokenProvider.createAccessToken(user.getEmail()),
+            jwtTokenProvider.createRefreshToken(user.getEmail())
+        );
     }
 
     private AuthResponse buildResponse(User user, Authentication authentication) {

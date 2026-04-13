@@ -35,11 +35,19 @@ public class JwtTokenProvider {
     }
 
     public String createAccessToken(Authentication authentication) {
-        return createToken(authentication.getName(), jwtProperties.getAccessTokenExpiration());
+        return createAccessToken(authentication.getName());
     }
 
     public String createRefreshToken(Authentication authentication) {
-        return createToken(authentication.getName(), jwtProperties.getRefreshTokenExpiration());
+        return createRefreshToken(authentication.getName());
+    }
+
+    public String createAccessToken(String subject) {
+        return createToken(subject, jwtProperties.getAccessTokenExpiration());
+    }
+
+    public String createRefreshToken(String subject) {
+        return createToken(subject, jwtProperties.getRefreshTokenExpiration());
     }
 
     public String getUsername(String token) {
