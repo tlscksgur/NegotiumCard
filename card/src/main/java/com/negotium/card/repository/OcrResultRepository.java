@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface OcrResultRepository extends JpaRepository<OcrResult, Long> {
 
     Optional<OcrResult> findByCardId(Long cardId);
+
+    void deleteByCardId(Long cardId);
 }

@@ -20,4 +20,6 @@ public interface PersonTagRepository extends JpaRepository<PersonTag, Long> {
         order by pt.tag.name asc
         """)
     List<PersonTag> findAllWithTagByPersonId(Long personId);
+
+    void deleteByPersonId(Long personId);
 }

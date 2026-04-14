@@ -18,4 +18,6 @@ public interface MemoRepository extends JpaRepository<Memo, Long> {
         order by m.createdAt desc
         """)
     List<Memo> findByPersonIdAndUserId(Long personId, Long userId);
+
+    void deleteByPersonId(Long personId);
 }

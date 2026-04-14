@@ -17,6 +17,8 @@ public interface CardRepository extends JpaRepository<Card, Long> {
 
     boolean existsByPersonIdAndUserId(Long personId, Long userId);
 
+    long countByPersonId(Long personId);
+
     @Query("""
         select c
         from Card c

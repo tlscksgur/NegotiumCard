@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class CardAnalyzeService {
@@ -26,14 +28,14 @@ public class CardAnalyzeService {
     private final DetectionResultRepository detectionResultRepository;
     private final OcrResultRepository ocrResultRepository;
     private final FastApiService fastApiService;
-    private final CardStatusService cardStatusService;
 
     @Transactional
     public CardYoloAnalyzeResponse analyzeCardYolo(Long cardId, Long userId) {
         Card card = cardRepository.findByIdAndUserId(cardId, userId)
             .orElseThrow(() -> new IllegalArgumentException("Card not found."));
 
-        cardStatusService.updateStatus(cardId, userId, CardStatus.ANALYZING);
+        card.setStatus(CardStatus.ANALYZING);
+        cardRepository.save(card);
 
         try {
             YoloAnalyzeResponse response = fastApiService.analyzeYolo(new YoloAnalyzeRequest(card.getImageUrl()));
@@ -54,6 +56,7 @@ public class CardAnalyzeService {
             );
 
             card.setStatus(CardStatus.ANALYZED);
+            cardRepository.save(card);
 
             return new CardYoloAnalyzeResponse(
                 card.getId(),
@@ -62,7 +65,8 @@ public class CardAnalyzeService {
                 response.detections()
             );
         } catch (RuntimeException error) {
-            cardStatusService.updateStatus(cardId, userId, CardStatus.FAILED);
+            card.setStatus(CardStatus.FAILED);
+            cardRepository.save(card);
             throw error;
         }
     }
@@ -72,10 +76,22 @@ public class CardAnalyzeService {
         Card card = cardRepository.findByIdAndUserId(cardId, userId)
             .orElseThrow(() -> new IllegalArgumentException("Card not found."));
 
-        cardStatusService.updateStatus(cardId, userId, CardStatus.ANALYZING);
+        card.setStatus(CardStatus.ANALYZING);
+        cardRepository.save(card);
 
         try {
-            OcrAnalyzeResponse response = fastApiService.analyzeOcr(new OcrAnalyzeRequest(card.getImageUrl()));
+            List<com.negotium.card.analyze.dto.YoloDetectionResponse> detections = detectionResultRepository.findByCardId(cardId).stream()
+                .map(detection -> new com.negotium.card.analyze.dto.YoloDetectionResponse(
+                    detection.getLabel(),
+                    detection.getX(),
+                    detection.getY(),
+                    detection.getWidth(),
+                    detection.getHeight(),
+                    detection.getConfidence()
+                ))
+                .toList();
+
+            OcrAnalyzeResponse response = fastApiService.analyzeOcr(new OcrAnalyzeRequest(card.getImageUrl(), detections));
 
             OcrResult ocrResult = ocrResultRepository.findByCardId(cardId)
                 .map(existing -> updateOcrResult(existing, response))
@@ -84,6 +100,7 @@ public class CardAnalyzeService {
             OcrResult savedOcrResult = ocrResultRepository.save(ocrResult);
             card.setOcrResult(savedOcrResult);
             card.setStatus(CardStatus.ANALYZED);
+            cardRepository.save(card);
 
             return new CardOcrAnalyzeResponse(
                 card.getId(),
@@ -92,7 +109,8 @@ public class CardAnalyzeService {
                 OcrResultResponse.from(savedOcrResult)
             );
         } catch (RuntimeException error) {
-            cardStatusService.updateStatus(cardId, userId, CardStatus.FAILED);
+            card.setStatus(CardStatus.FAILED);
+            cardRepository.save(card);
             throw error;
         }
     }

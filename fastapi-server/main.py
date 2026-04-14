@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import tempfile
 from contextlib import suppress
 from pathlib import Path
@@ -9,6 +10,7 @@ from urllib.parse import urlparse
 import httpx
 import pytesseract
 from fastapi import FastAPI, HTTPException
+from PIL import Image, ImageOps
 from pydantic import BaseModel, ConfigDict, Field
 
 try:
@@ -21,11 +23,18 @@ DEFAULT_MODEL_PATH = os.getenv("YOLO_MODEL_PATH", "yolov8n.pt")
 SPRING_FILE_BASE_URL = os.getenv("SPRING_FILE_BASE_URL", "http://localhost:8080")
 YOLO_CONFIDENCE = float(os.getenv("YOLO_CONFIDENCE", "0.25"))
 OCR_LANGS = os.getenv("OCR_LANGS", "kor+eng")
+DEFAULT_TESSERACT_PATHS = (
+    os.getenv("TESSERACT_CMD"),
+    shutil.which("tesseract"),
+    "/opt/homebrew/bin/tesseract",
+    "/usr/local/bin/tesseract",
+)
 
 app = FastAPI(title="Negotium Card AI Server", version="0.3.0")
 
 _model: Any = None
 _model_error: str | None = None
+_tesseract_path: str | None = None
 
 
 class YoloAnalyzeRequest(BaseModel):
@@ -54,6 +63,7 @@ class OcrAnalyzeRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     image_url: str = Field(alias="imageUrl")
+    detections: list[DetectionItem] = Field(default_factory=list)
 
 
 class OcrAnalyzeResponse(BaseModel):
@@ -85,6 +95,20 @@ def load_model() -> None:
     except Exception as error:  # pragma: no cover - runtime configuration path
         _model = None
         _model_error = str(error)
+
+
+def configure_tesseract() -> None:
+    global _tesseract_path
+    if _tesseract_path is not None:
+        return
+
+    for candidate in DEFAULT_TESSERACT_PATHS:
+        if candidate and Path(candidate).exists():
+            pytesseract.pytesseract.tesseract_cmd = candidate
+            _tesseract_path = candidate
+            return
+
+    _tesseract_path = ""
 
 
 def require_model() -> Any:
@@ -122,6 +146,10 @@ def download_image(image_url: str) -> Path:
 
 def normalize(value: float) -> float:
     return round(value, 6)
+
+
+def normalize_label(label: str) -> str:
+    return label.strip().lower().replace(" ", "_")
 
 
 def is_noise(text: str) -> bool:
@@ -313,9 +341,77 @@ def parse_ocr_fields(lines: list[str]) -> dict[str, str | None]:
     }
 
 
+def preprocess_for_ocr(image: Image.Image) -> Image.Image:
+    grayscale = ImageOps.grayscale(image)
+    contrasted = ImageOps.autocontrast(grayscale)
+    width, height = contrasted.size
+    scale = max(1, int(1400 / max(width, 1)))
+    if max(width, height) < 1400:
+        resized = contrasted.resize((max(1, width * scale), max(1, height * scale)))
+    else:
+        resized = contrasted
+    return resized.point(lambda pixel: 255 if pixel > 170 else 0)
+
+
+def run_tesseract(image: Image.Image, *, config: str = "--psm 6") -> str:
+    configure_tesseract()
+    return pytesseract.image_to_string(preprocess_for_ocr(image), lang=OCR_LANGS, config=config)
+
+
+def detection_to_crop(image: Image.Image, detection: DetectionItem) -> Image.Image:
+    image_width, image_height = image.size
+    left = max(0, int(detection.x * image_width))
+    top = max(0, int(detection.y * image_height))
+    right = min(image_width, int((detection.x + detection.width) * image_width))
+    bottom = min(image_height, int((detection.y + detection.height) * image_height))
+
+    if right <= left or bottom <= top:
+        return image
+
+    padding_x = max(4, int((right - left) * 0.04))
+    padding_y = max(4, int((bottom - top) * 0.1))
+    return image.crop(
+        (
+            max(0, left - padding_x),
+            max(0, top - padding_y),
+            min(image_width, right + padding_x),
+            min(image_height, bottom + padding_y),
+        )
+    )
+
+
+def detection_ocr_config(label: str) -> str:
+    normalized = normalize_label(label)
+    if normalized in {"email", "phone"}:
+        return "--psm 7"
+    if normalized in {"name", "company", "department", "position"}:
+        return "--psm 6"
+    return "--psm 11"
+
+
+def extract_detection_fields(image: Image.Image, detections: list[DetectionItem]) -> tuple[dict[str, str], list[str]]:
+    field_map: dict[str, str] = {}
+    region_texts: list[str] = []
+
+    prioritized = sorted(detections, key=lambda item: item.confidence, reverse=True)
+    for detection in prioritized:
+        crop = detection_to_crop(image, detection)
+        text = " ".join(run_tesseract(crop, config=detection_ocr_config(detection.label)).split())
+        if is_noise(text):
+            continue
+
+        region_texts.append(text)
+        normalized = normalize_label(detection.label)
+        if normalized in {"name", "company", "department", "position", "email", "phone"} and normalized not in field_map:
+            field_map[normalized] = text
+
+    return field_map, region_texts
+
+
 @app.on_event("startup")
 def startup() -> None:
     load_model()
+    configure_tesseract()
 
 
 @app.get("/health")
@@ -328,6 +424,8 @@ def health() -> dict[str, object]:
         "modelPath": DEFAULT_MODEL_PATH,
         "modelError": _model_error,
         "ocrLangs": OCR_LANGS,
+        "tesseractPath": _tesseract_path or None,
+        "ocrReady": bool(_tesseract_path),
     }
 
 
@@ -376,19 +474,31 @@ def analyze_ocr(request: OcrAnalyzeRequest) -> OcrAnalyzeResponse:
     image_path = download_image(request.image_url)
 
     try:
-        raw_text = pytesseract.image_to_string(str(image_path), lang=OCR_LANGS)
-        sorted_lines = [line.strip() for line in raw_text.splitlines() if not is_noise(line)]
+        with Image.open(image_path) as image:
+            full_text = run_tesseract(image)
+            detection_fields, detection_texts = extract_detection_fields(image, request.detections)
+
+        sorted_lines = [line.strip() for line in full_text.splitlines() if not is_noise(line)]
         parsed = parse_ocr_fields(sorted_lines)
+        merged_fields = {
+            "name": detection_fields.get("name") or parsed["name"],
+            "company": detection_fields.get("company") or parsed["company"],
+            "department": detection_fields.get("department") or parsed["department"],
+            "position": detection_fields.get("position") or parsed["position"],
+            "email": detection_fields.get("email") or parsed["email"],
+            "phone": detection_fields.get("phone") or parsed["phone"],
+        }
+        raw_text_sections = [*sorted_lines, *[text for text in detection_texts if text not in sorted_lines]]
 
         return OcrAnalyzeResponse(
             image_url=request.image_url,
-            raw_text="\n".join(sorted_lines),
-            name=parsed["name"],
-            company=parsed["company"],
-            department=parsed["department"],
-            position=parsed["position"],
-            email=parsed["email"],
-            phone=parsed["phone"],
+            raw_text="\n".join(raw_text_sections),
+            name=merged_fields["name"],
+            company=merged_fields["company"],
+            department=merged_fields["department"],
+            position=merged_fields["position"],
+            email=merged_fields["email"],
+            phone=merged_fields["phone"],
         )
     except pytesseract.TesseractNotFoundError as error:  # pragma: no cover - runtime environment path
         raise HTTPException(status_code=503, detail=f"OCR engine is not installed: {error}") from error

@@ -2,6 +2,7 @@ package com.negotium.card.card.controller;
 
 import com.negotium.card.card.dto.CardCreateRequest;
 import com.negotium.card.card.dto.CardResponse;
+import com.negotium.card.card.dto.ManualCardCreateRequest;
 import com.negotium.card.card.dto.OcrResultUpdateRequest;
 import com.negotium.card.card.service.CardService;
 import com.negotium.card.security.SecurityUser;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -47,6 +49,15 @@ public class CardController {
         return cardService.uploadCardImage(user.getId(), file);
     }
 
+    @PostMapping("/manual")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CardResponse createManualCard(
+        @Valid @RequestBody ManualCardCreateRequest request,
+        @AuthenticationPrincipal SecurityUser user
+    ) {
+        return cardService.createManualCard(user.getId(), request);
+    }
+
     @GetMapping
     public List<CardResponse> getCards(@AuthenticationPrincipal SecurityUser user) {
         return cardService.getCards(user.getId());
@@ -69,5 +80,11 @@ public class CardController {
         @AuthenticationPrincipal SecurityUser user
     ) {
         return cardService.updateOcrResult(user.getId(), id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteCard(@PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
+        cardService.deleteCard(user.getId(), id);
     }
 }

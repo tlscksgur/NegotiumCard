@@ -70,4 +70,17 @@ public class FileStorageService {
             throw new IllegalArgumentException("File not found.", e);
         }
     }
+
+    public void delete(String fileName) {
+        Path filePath = uploadDir.resolve(fileName).normalize();
+        if (!filePath.startsWith(uploadDir)) {
+            throw new IllegalArgumentException("Invalid file path.");
+        }
+
+        try {
+            Files.deleteIfExists(filePath);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to delete file.", e);
+        }
+    }
 }
