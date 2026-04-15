@@ -366,16 +366,16 @@ function MobileCardApp() {
         <section className="phone-frame auth-frame">
           <div className="phone-header">
             <div>
-              <p className="eyebrow">NEGOTIUM CARD APP</p>
-              <h1>디지털 명함 관리</h1>
+              <p className="eyebrow">NEGOTIUM CARD</p>
+              <h1>명함 관리의 새로운 기준</h1>
             </div>
             <span className={`server-badge ${serverStatus === 'server ok' || serverStatus === '서버 정상' ? 'online' : 'offline'}`}>{serverStatus}</span>
           </div>
 
           <section className="panel hero-panel">
-            <p className="hero-kicker">모바일 웹 MVP</p>
-            <h2>명함을 등록하고, 검색하고, 조직도로 연결합니다.</h2>
-            <p>직접 입력, 이미지 업로드, OCR 수정, 인물 검색, 회사 조직도 탐색을 모두 지원합니다.</p>
+            <p className="hero-kicker">SMART ARCHIVE</p>
+            <h2>명함 등록부터 조직도 연결까지 한 번에.</h2>
+            <p>이미지 인식(OCR)과 AI 분석을 통해 비즈니스 인맥을 체계적으로 관리하세요.</p>
           </section>
 
           <section className="panel auth-panel">
@@ -567,60 +567,51 @@ function HomePage({
 
   return (
     <div className="page-stack">
-      <section className="panel profile-panel profile-panel-compact">
+      <section className="panel profile-panel">
         <div className="profile-copy">
-          <p className="profile-name">등록 대시보드</p>
-          <p className="profile-email">이미지 업로드를 우선으로 두고, 필요한 경우에만 직접 등록을 보조 입력으로 사용하세요.</p>
+          <p className="profile-name">명함 보관함 통계</p>
+          <p className="profile-email">이미지 업로드를 통해 명함을 등록하고 필요시 수기로 보조 입력할 수 있습니다.</p>
         </div>
         <div className="profile-stats">
           <div className="stat-chip">
             <strong>{cards.length}</strong>
-            <span>전체 명함</span>
+            <span>전체</span>
           </div>
           <div className="stat-chip">
             <strong>{imageCardCount}</strong>
-            <span>이미지 업로드</span>
+            <span>이미지</span>
           </div>
           <div className="stat-chip">
             <strong>{manualCardCount}</strong>
-            <span>직접 등록</span>
+            <span>수기</span>
           </div>
         </div>
       </section>
 
-      <section className="panel upload-panel upload-panel-primary">
+      <section className="panel upload-panel">
         <div className="upload-hero">
-          <div className="panel-title panel-title-wide">
-            <p className="hero-kicker hero-kicker-soft">PRIMARY FLOW</p>
-            <h2>이미지 업로드</h2>
-            <p>명함 사진을 올리면 OCR과 조직 동기화가 바로 이어집니다. 등록 흐름은 이 경로를 기본으로 사용합니다.</p>
-          </div>
-          <div className="upload-info-card">
-            <span>권장 포맷</span>
-            <strong>JPG, PNG, WEBP</strong>
-            <p>정면 촬영 이미지일수록 인식 품질이 안정적입니다.</p>
+          <div className="panel-title">
+            <p className="hero-kicker">QUICK UPLOAD</p>
+            <h2>명함 이미지 업로드</h2>
+            <p>사진을 올리면 실시간 OCR 분석과 회사 매칭이 시작됩니다.</p>
           </div>
         </div>
 
-        <label className="upload-dropzone upload-dropzone-primary">
+        <label className="upload-dropzone">
           <input accept="image/*" onChange={onFileChange} type="file" />
           {previewUrl ? (
             <img alt="명함 미리보기" src={previewUrl} />
           ) : (
-            <div className="upload-placeholder upload-placeholder-primary">
-              <strong>명함 이미지를 선택하세요</strong>
-              <span>클릭해서 업로드하거나 모바일에서 바로 촬영할 수 있습니다.</span>
+            <div className="upload-placeholder">
+              <strong>이미지를 드래그하거나 선택하세요</strong>
+              <span>JPG, PNG, WEBP 포맷을 지원합니다.</span>
             </div>
           )}
         </label>
 
         <div className="upload-actions">
-          <div className="upload-meta">
-            <span className="upload-file-label">선택된 파일</span>
-            <strong>{selectedFile ? selectedFile.name : '아직 선택되지 않았습니다.'}</strong>
-          </div>
-          <button className="primary-button primary-button-hero" disabled={!selectedFile || loading} onClick={onUpload} type="button">
-            {loading ? '업로드 중...' : '이미지 업로드'}
+          <button className="primary-button" disabled={!selectedFile || loading} onClick={onUpload} type="button">
+            {loading ? '업로드 중...' : '명함 업로드 시작'}
           </button>
         </div>
       </section>

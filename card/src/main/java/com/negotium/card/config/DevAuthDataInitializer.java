@@ -5,13 +5,13 @@ import com.negotium.card.entity.UserRole;
 import com.negotium.card.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
-@Profile("dev")
+@ConditionalOnProperty(name = "app.auth.seed-default-user", havingValue = "true")
 @RequiredArgsConstructor
 public class DevAuthDataInitializer {
 
