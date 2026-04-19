@@ -6,6 +6,7 @@ import {
   NavLink,
   Route,
   Routes,
+  useLocation,
   useNavigate,
   useParams,
   useSearchParams,
@@ -119,35 +120,141 @@ function isAuthError(error: unknown) {
 
 const Icons = {
   Home: () => (
-    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
       <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
   Cards: () => (
-    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
       <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
   Search: () => (
-    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
       <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
   Org: () => (
-    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
       <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
   Plus: () => (
-    <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+    <svg fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
       <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
   Logout: () => (
-    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
       <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+}
+
+// --- Layout Components ---
+
+function BackgroundDecorations() {
+  return (
+    <div className="bg-decorations">
+      <div className="decor-circle decor-circle-1"></div>
+      <div className="decor-circle decor-circle-2"></div>
+      <div className="decor-circle decor-circle-3"></div>
+    </div>
+  )
+}
+
+function Sidebar({ onLogout }: { onLogout: () => void }) {
+  return (
+    <aside className="desktop-sidebar">
+      <div className="sidebar-logo">Negotium</div>
+      <nav className="sidebar-nav">
+        <NavLink className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`} to="/">
+          <Icons.Home />
+          <span>대시보드</span>
+        </NavLink>
+        <NavLink className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`} to="/cards">
+          <Icons.Cards />
+          <span>나의 명함첩</span>
+        </NavLink>
+        <NavLink className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`} to="/search">
+          <Icons.Search />
+          <span>인물 검색</span>
+        </NavLink>
+        <NavLink className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`} to="/org">
+          <Icons.Org />
+          <span>조직도 탐색</span>
+        </NavLink>
+      </nav>
+      <div style={{ marginTop: 'auto' }}>
+        <button
+          className="secondary-btn"
+          onClick={onLogout}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', padding: '12px' }}
+        >
+          <Icons.Logout />
+          <span>로그아웃</span>
+        </button>
+      </div>
+    </aside>
+  )
+}
+
+function InfoPanel({ cards }: { cards: CardResponse[] }) {
+  const recentCards = cards.slice(0, 3)
+  
+  return (
+    <aside className="desktop-info-panel">
+      <div className="info-card">
+        <h3 className="info-card-title">나의 활동 통계</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-muted)' }}>보유 명함</span>
+            <span style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--primary)' }}>{cards.length}</span>
+          </div>
+          <div style={{ height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{ width: '70%', height: '100%', background: 'var(--primary)' }}></div>
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: '1.4' }}>
+            지난주보다 3개의 명함이 더 추가되었습니다. 네트워크가 넓어지고 있네요!
+          </p>
+        </div>
+      </div>
+
+      <div className="info-card">
+        <h3 className="info-card-title">최근 등록한 인물</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {recentCards.length > 0 ? (
+            recentCards.map(card => (
+              <div key={card.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <img 
+                  alt={getCardTitle(card)} 
+                  src={isAnalyzableCard(card) ? card.imageUrl : '/placeholder.png'} 
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                />
+                <div style={{ overflow: 'hidden' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {getCardTitle(card)}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {card.ocrResult?.company || '정보 없음'}
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', textAlign: 'center' }}>데이터가 없습니다.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="info-card" style={{ background: 'linear-gradient(135deg, var(--primary), #60a5fa)', color: 'white', border: 'none' }}>
+        <h3 className="info-card-title" style={{ color: 'white' }}>Pro Tip</h3>
+        <p style={{ fontSize: '0.85rem', lineHeight: '1.6', opacity: '0.9' }}>
+          명함 이미지를 업로드할 때 조명이 밝은 곳에서 찍으면 OCR 인식률이 더 올라갑니다!
+        </p>
+      </div>
+    </aside>
+  )
 }
 
 // --- App Component ---
@@ -162,6 +269,7 @@ function App() {
 
 function MobileCardApp() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [auth, setAuth] = useState<AuthResponse | null>(null)
   const [email, setEmail] = useState('')
@@ -351,25 +459,26 @@ function MobileCardApp() {
 
   if (!auth) {
     return (
-      <main className="app-shell">
-        <div className="app-container" style={{ paddingTop: '80px' }}>
-          <section className="panel">
-            <h1 style={{ textAlign: 'center', marginBottom: '8px' }}>Negotium Card</h1>
-            <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '32px' }}>
+      <main className="app-shell" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <BackgroundDecorations />
+        <div className="app-container" style={{ paddingTop: '0' }}>
+          <section className="panel" style={{ padding: '40px' }}>
+            <h1 style={{ textAlign: 'center', marginBottom: '8px', fontSize: '2rem', fontWeight: '900' }}>Negotium Card</h1>
+            <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '32px', fontWeight: '600' }}>
               비즈니스 네트워크의 시작, 명함 아카이브
             </p>
 
-            <div className="flex-between" style={{ background: '#f3f4f6', padding: '4px', borderRadius: '12px', marginBottom: '24px' }}>
+            <div className="flex-between" style={{ background: '#f3f4f6', padding: '6px', borderRadius: '16px', marginBottom: '24px' }}>
               <button
                 className={authMode === 'login' ? 'secondary-btn active' : 'secondary-btn'}
-                style={{ flex: 1, border: 'none', background: authMode === 'login' ? 'white' : 'transparent', boxShadow: authMode === 'login' ? 'var(--shadow-sm)' : 'none' }}
+                style={{ flex: 1, border: 'none', background: authMode === 'login' ? 'white' : 'transparent', boxShadow: authMode === 'login' ? 'var(--shadow-sm)' : 'none', padding: '12px' }}
                 onClick={() => setAuthMode('login')}
               >
                 로그인
               </button>
               <button
                 className={authMode === 'signup' ? 'secondary-btn active' : 'secondary-btn'}
-                style={{ flex: 1, border: 'none', background: authMode === 'signup' ? 'white' : 'transparent', boxShadow: authMode === 'signup' ? 'var(--shadow-sm)' : 'none' }}
+                style={{ flex: 1, border: 'none', background: authMode === 'signup' ? 'white' : 'transparent', boxShadow: authMode === 'signup' ? 'var(--shadow-sm)' : 'none', padding: '12px' }}
                 onClick={() => setAuthMode('signup')}
               >
                 회원가입
@@ -378,25 +487,25 @@ function MobileCardApp() {
 
             <form className="auth-form" onSubmit={handleAuthSubmit}>
               {authMode === 'signup' && (
-                <div className="form-group">
-                  <label className="form-label">이름</label>
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label className="form-label" style={{ fontWeight: '800', fontSize: '0.85rem', marginBottom: '6px', display: 'block' }}>이름</label>
                   <input className="form-input" required value={name} onChange={(e) => setName(e.target.value)} placeholder="실명을 입력하세요" />
                 </div>
               )}
-              <div className="form-group">
-                <label className="form-label">이메일</label>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label" style={{ fontWeight: '800', fontSize: '0.85rem', marginBottom: '6px', display: 'block' }}>이메일</label>
                 <input className="form-input" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" />
               </div>
-              <div className="form-group">
-                <label className="form-label">비밀번호</label>
+              <div className="form-group" style={{ marginBottom: '32px' }}>
+                <label className="form-label" style={{ fontWeight: '800', fontSize: '0.85rem', marginBottom: '6px', display: 'block' }}>비밀번호</label>
                 <input className="form-input" required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
               </div>
-              <button className="primary-btn" disabled={loading} type="submit">
+              <button className="primary-btn" disabled={loading} type="submit" style={{ padding: '16px' }}>
                 {loading ? '처리 중...' : authMode === 'login' ? '로그인' : '회원가입'}
               </button>
             </form>
           </section>
-          {feedback && <p className="empty-state" style={{ color: 'var(--danger)' }}>{feedback}</p>}
+          {feedback && <p className="empty-state" style={{ color: 'var(--danger)', fontWeight: '700' }}>{feedback}</p>}
         </div>
       </main>
     )
@@ -404,55 +513,62 @@ function MobileCardApp() {
 
   return (
     <div className="app-shell">
-      <header className="top-header">
-        <h1>Negotium</h1>
-        <button className="secondary-btn" style={{ width: 'auto', padding: '8px 12px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={handleLogout}>
-          <Icons.Logout />
-          <span>로그아웃</span>
-        </button>
-      </header>
+      <BackgroundDecorations />
+      <Sidebar onLogout={handleLogout} />
 
-      <main className="app-container" style={{ paddingBottom: '40px' }}>
-        <Routes>
-          <Route path="/" element={<DashboardPage cards={cards} />} />
-          <Route
-            path="/upload"
-            element={
-              <UploadPage
-                previewUrl={previewUrl}
-                loading={loading}
-                onFileChange={handleFileChange}
-                onUpload={handleUpload}
-                onCreateManual={handleCreateManualCard}
-              />
-            }
-          />
-          <Route
-            path="/cards"
-            element={
-              <CardListPage
-                cards={cards}
-                analyzingCardId={analyzingCardId}
-                onAnalyze={handleAnalyzeCard}
-              />
-            }
-          />
-          <Route path="/search" element={<SearchPage accessToken={auth.accessToken} cards={cards} />} />
-          <Route path="/org" element={<OrganizationPage accessToken={auth.accessToken} />} />
-          <Route
-            path="/digital/:cardId"
-            element={
-              <DigitalCardDetail
-                accessToken={auth.accessToken}
-                cards={cards}
-                deletingCardId={deletingCardId}
-                onDeleteCard={handleDeleteCard}
-                onRefreshCards={refreshCards}
-              />
-            }
-          />
-        </Routes>
-      </main>
+      <div className="main-content-wrapper">
+        <header className="top-header">
+          <h1>Negotium</h1>
+          <button className="secondary-btn" style={{ width: 'auto', padding: '8px 12px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={handleLogout}>
+            <Icons.Logout />
+            <span>로그아웃</span>
+          </button>
+        </header>
+
+        <main className="app-container">
+          <Routes>
+            <Route path="/" element={<DashboardPage cards={cards} />} />
+            <Route
+              path="/upload"
+              element={
+                <UploadPage
+                  previewUrl={previewUrl}
+                  loading={loading}
+                  onFileChange={handleFileChange}
+                  onUpload={handleUpload}
+                  onCreateManual={handleCreateManualCard}
+                />
+              }
+            />
+            <Route
+              path="/cards"
+              element={
+                <CardListPage
+                  cards={cards}
+                  analyzingCardId={analyzingCardId}
+                  onAnalyze={handleAnalyzeCard}
+                />
+              }
+            />
+            <Route path="/search" element={<SearchPage accessToken={auth.accessToken} cards={cards} />} />
+            <Route path="/org" element={<OrganizationPage accessToken={auth.accessToken} />} />
+            <Route
+              path="/digital/:cardId"
+              element={
+                <DigitalCardDetail
+                  accessToken={auth.accessToken}
+                  cards={cards}
+                  deletingCardId={deletingCardId}
+                  onDeleteCard={handleDeleteCard}
+                  onRefreshCards={refreshCards}
+                />
+              }
+            />
+          </Routes>
+        </main>
+      </div>
+
+      <InfoPanel cards={cards} />
 
       {location.pathname !== '/upload' && (
         <label className="fab">
@@ -482,6 +598,7 @@ function MobileCardApp() {
     </div>
   )
 }
+
 
 // --- Sub-pages ---
 
