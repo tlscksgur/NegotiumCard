@@ -247,7 +247,7 @@ function InfoPanel({ cards }: { cards: CardResponse[] }) {
         </div>
       </div>
 
-      <div className="info-card" style={{ background: 'linear-gradient(135deg, var(--primary), #60a5fa)', color: 'white', border: 'none' }}>
+      <div className="info-card" style={{ background: 'linear-gradient(135deg, var(--primary), #8bc7c7)', color: 'white', border: 'none' }}>
         <h3 className="info-card-title" style={{ color: 'white' }}>Pro Tip</h3>
         <p style={{ fontSize: '0.85rem', lineHeight: '1.6', opacity: '0.9' }}>
           명함 이미지를 업로드할 때 조명이 밝은 곳에서 찍으면 OCR 인식률이 더 올라갑니다!
@@ -645,11 +645,11 @@ function DashboardPage({ cards }: { cards: CardResponse[] }) {
         <h2 className="section-title">빠른 기능</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <Link className="panel" style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }} to="/search">
-            <div style={{ background: '#f5f3ff', padding: '12px', borderRadius: '50%', color: 'var(--primary)' }}><Icons.Search /></div>
+            <div style={{ background: 'var(--primary-light)', padding: '12px', borderRadius: '50%', color: 'var(--primary)' }}><Icons.Search /></div>
             <span style={{ fontWeight: '600', fontSize: '0.875rem' }}>인물 검색</span>
           </Link>
           <Link className="panel" style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }} to="/org">
-            <div style={{ background: '#f5f3ff', padding: '12px', borderRadius: '50%', color: 'var(--primary)' }}><Icons.Org /></div>
+            <div style={{ background: 'var(--primary-light)', padding: '12px', borderRadius: '50%', color: 'var(--primary)' }}><Icons.Org /></div>
             <span style={{ fontWeight: '600', fontSize: '0.875rem' }}>조직도 보기</span>
           </Link>
         </div>
@@ -944,7 +944,7 @@ function DigitalCardDetail({
             className="secondary-btn"
             disabled={deletingCardId === card.id}
             onClick={async () => { if (await onDeleteCard(card.id)) navigate('/cards') }}
-            style={{ color: 'var(--danger)', marginTop: '20px', width: '100%', background: '#fff0f0' }}
+            style={{ color: 'var(--danger)', marginTop: '20px', width: '100%', background: 'var(--secondary-light)' }}
           >
             {deletingCardId === card.id ? '삭제 중...' : '명함 삭제하기'}
           </button>

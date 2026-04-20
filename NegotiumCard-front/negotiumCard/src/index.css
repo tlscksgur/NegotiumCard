@@ -4,8 +4,8 @@
   font-weight: 400;
   color: #102542;
   background:
-    radial-gradient(circle at top, rgba(78, 143, 255, 0.25), transparent 32%),
-    linear-gradient(180deg, #dfefff 0%, #edf5db 100%);
+    radial-gradient(circle at top, rgba(100, 176, 176, 0.15), transparent 32%),
+    linear-gradient(180deg, #f0fafa 0%, #f5f5f5 100%);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

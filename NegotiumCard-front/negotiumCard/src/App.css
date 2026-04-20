@@ -4,8 +4,10 @@
   --bg-sub: #f9fafb;
   --bg-card: rgba(255, 255, 255, 0.7);
   
-  --primary: #3182f6;
-  --primary-light: #eff6ff;
+  --primary: #64b0b0;
+  --primary-light: #e6f4f4;
+  --secondary: #c12d3d;
+  --secondary-light: #f9eaea;
   
   --text-main: #1a1f27;
   --text-muted: #6b7684;
@@ -65,7 +67,7 @@ body {
 .decor-circle-1 {
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, #3182f6, transparent);
+  background: radial-gradient(circle, var(--primary), transparent);
   top: -100px;
   left: -100px;
 }
@@ -73,7 +75,7 @@ body {
 .decor-circle-2 {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, #a5b4fc, transparent);
+  background: radial-gradient(circle, var(--secondary), transparent);
   bottom: -150px;
   right: -100px;
 }
@@ -81,7 +83,7 @@ body {
 .decor-circle-3 {
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, #f0abfc, transparent);
+  background: radial-gradient(circle, var(--primary-light), transparent);
   top: 20%;
   right: 10%;
 }
@@ -181,14 +183,14 @@ body {
 }
 
 .sidebar-nav-item:hover {
-  background: rgba(49, 130, 246, 0.05);
+  background: rgba(100, 176, 176, 0.05);
   color: var(--primary);
 }
 
 .sidebar-nav-item.active {
   background: var(--primary);
   color: white;
-  box-shadow: 0 4px 12px rgba(49, 130, 246, 0.2);
+  box-shadow: 0 4px 12px rgba(100, 176, 176, 0.2);
 }
 
 /* Info Panel (Desktop Only) */
@@ -274,7 +276,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 16px rgba(49, 130, 246, 0.4);
+  box-shadow: 0 6px 16px rgba(100, 176, 176, 0.4);
   border: none;
   cursor: pointer;
   z-index: 900;
@@ -400,7 +402,7 @@ body {
   right: 0;
   width: 150px;
   height: 150px;
-  background: radial-gradient(circle at top right, rgba(49, 130, 246, 0.1), transparent);
+  background: radial-gradient(circle at top right, rgba(100, 176, 176, 0.1), transparent);
   pointer-events: none;
 }
 
@@ -478,7 +480,7 @@ body {
 .form-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(49, 130, 246, 0.1);
+  box-shadow: 0 0 0 4px rgba(100, 176, 176, 0.1);
 }
 
 .primary-btn {
@@ -492,12 +494,12 @@ body {
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(49, 130, 246, 0.2);
+  box-shadow: 0 4px 12px rgba(100, 176, 176, 0.2);
 }
 
 .primary-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(49, 130, 246, 0.3);
+  box-shadow: 0 6px 16px rgba(100, 176, 176, 0.3);
 }
 
 .primary-btn:active {
