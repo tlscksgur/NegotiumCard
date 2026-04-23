@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -150,5 +152,36 @@ class CardFeatureIntegrationTests {
             .andExpect(status().isUnauthorized())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("$.message").value("이메일 또는 비밀번호가 올바르지 않습니다."));
+    }
+
+    @Test
+    void imageUploadRequiresAuthenticationWithUnauthorizedStatus() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "card.png",
+            MediaType.IMAGE_PNG_VALUE,
+            "fake-image".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/v1/cards/image").file(file))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void authenticatedImageUploadCreatesCard() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "card.png",
+            MediaType.IMAGE_PNG_VALUE,
+            "fake-image".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/v1/cards/image")
+                .file(file)
+                .header("Authorization", authorizationHeader))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.imageUrl").value(org.hamcrest.Matchers.startsWith("/api/v1/files/")))
+            .andExpect(jsonPath("$.originalFileName").value("card.png"))
+            .andExpect(jsonPath("$.status").value("UPLOADED"));
     }
 }

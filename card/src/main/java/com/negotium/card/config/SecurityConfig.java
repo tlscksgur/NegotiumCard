@@ -2,6 +2,7 @@ package com.negotium.card.config;
 
 import com.negotium.card.security.CustomUserDetailsService;
 import com.negotium.card.security.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -38,6 +39,11 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint((request, response, authException) ->
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED)
+                )
+            )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .userDetailsService(customUserDetailsService)
             .authorizeHttpRequests(auth -> auth
