@@ -93,7 +93,3 @@ Negotium Card는 오프라인 명함 정보를 디지털로 관리하고,
 - EC2
 - Docker
 - Nginx
-
----
-
-## ⚙️ 시스템 아키텍처
